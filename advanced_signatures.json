@@ -1,0 +1,79 @@
+[
+  {
+    "name": "Scan Nmap",
+    "proto": "TCP",
+    "flags": "S",
+    "dport": [80, 443, 22, 21, 25, 110, 143],
+    "threshold": 10,
+    "severity": "HIGH"
+  },
+  {
+    "name": "Scan SYN-FIN",
+    "proto": "TCP",
+    "flags": "SF",
+    "dport": [1, 1024, 3389, 8080],
+    "threshold": 5,
+    "severity": "HIGH"
+  },
+  {
+    "name": "Scan Xmas",
+    "proto": "TCP",
+    "flags": "FPU",
+    "dport": [1, 1024, 3389, 8080],
+    "threshold": 3,
+    "severity": "CRITICAL"
+  },
+  {
+    "name": "Scan NULL",
+    "proto": "TCP",
+    "flags": "",
+    "dport": [1, 1024, 3389, 8080],
+    "threshold": 5,
+    "severity": "HIGH"
+  },
+  {
+    "name": "SSH Brute Force",
+    "proto": "TCP",
+    "flags": "S",
+    "dport": [22],
+    "threshold": 5,
+    "severity": "CRITICAL"
+  },
+  {
+    "name": "FTP Brute Force",
+    "proto": "TCP",
+    "flags": "S",
+    "dport": [21],
+    "threshold": 5,
+    "severity": "HIGH"
+  },
+  {
+    "name": "RDP Brute Force",
+    "proto": "TCP",
+    "flags": "S",
+    "dport": [3389],
+    "threshold": 5,
+    "severity": "CRITICAL"
+  },
+  {
+    "name": "DNS Amplification",
+    "proto": "UDP",
+    "dport": [53],
+    "threshold": 20,
+    "severity": "CRITICAL"
+  },
+  {
+    "name": "ICMP Flood",
+    "proto": "ICMP",
+    "threshold": 50,
+    "severity": "MEDIUM"
+  },
+  {
+    "name": "SMB Scan",
+    "proto": "TCP",
+    "flags": "S",
+    "dport": [139, 445],
+    "threshold": 3,
+    "severity": "HIGH"
+  }
+]

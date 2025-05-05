@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS - Tableau de bord</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+        .card-header {
+            background-color: #343a40;
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+        }
+        .alert-badge {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+        }
+        .badge-LOW { background-color: #28a745; color: white; }
+        .badge-MEDIUM { background-color: #ffc107; color: black; }
+        .badge-HIGH { background-color: #fd7e14; color: white; }
+        .badge-CRITICAL { background-color: #dc3545; color: white; }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .nav-link {
+            font-weight: 500;
+        }
+        .table th {
+            background-color: #343a40;
+            color: white;
+        }
+        .stats-card {
+            text-align: center;
+            padding: 15px;
+        }
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .stats-label {
+            font-size: 1rem;
+            color: #6c757d;
+        }
+        #realtime-alerts {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .acknowledged {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-shield-check"></i> IDS Dashboard
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#dashboard">Tableau de bord</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#alerts">Alertes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#statistics">Statistiques</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#settings">Paramètres</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Overview Section -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h2><i class="bi bi-speedometer2"></i> Vue d'ensemble</h2>
+                <hr>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number text-primary" id="total-alerts">0</div>
+                    <div class="stats-label">Alertes totales</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number text-warning" id="pending-alerts">0</div>
+                    <div class="stats-label">Alertes en attente</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number text-danger" id="critical-alerts">0</div>
+                    <div class="stats-label">Alertes critiques</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="stats-number text-success" id="unique-ips">0</div>
+                    <div class="stats-label">IPs uniques</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-pie-chart"></i> Répartition des alertes par sévérité
+                    </div>
+                    <div class="card-body">
+                        <div id="severity-chart" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-graph-up"></i> Évolution des alertes
+                    </div>
+                    <div class="card-body">
+                        <div id="timeline-chart" style="height: 300px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Table -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-exclamation-triangle"></i> Dernières alertes
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="show-acknowledged">
+                            <label class="form-check-label text-light" for="show-acknowledged">Afficher les alertes traitées</label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Horodatage</th>
+                                        <th>IP Source</th>
+                                        <th>Message</th>
+                                        <th>Sévérité</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alerts-table">
+                                    <!-- Les alertes seront chargées ici dynamiquement -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <nav>
+                            <ul class="pagination justify-content-center" id="alerts-pagination">
+                                <!-- Pagination sera générée ici -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Alerts -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-lightning"></i> Alertes en temps réel
+                    </div>
+                    <div class="card-body">
+                        <div id="realtime-alerts">
+                            <!-- Les alertes en temps réel seront affichées ici -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variables globales
+        let currentPage = 1;
+        const alertsPerPage = 10;
+        let showAcknowledged = false;
+        
+        // Fonction pour charger les alertes
+        function loadAlerts(page = 1) {
+            const offset = (page - 1) * alertsPerPage;
+            let url = `/api/alerts?limit=${alertsPerPage}&offset=${offset}`;
+            
+            if (!showAcknowledged) {
+                url += '&acknowledged=false';
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const alertsTable = document.getElementById('alerts-table');
+                    alertsTable.innerHTML = '';
+                    
+                    data.forEach(alert => {
+                        const row = document.createElement('tr');
+                        if (alert.acknowledged) {
+                            row.classList.add('acknowledged');
+                        }
+                        
+                        row.innerHTML = `
+                            <td>${alert.timestamp}</td>
+                            <td>${alert.ip}</td>
+                            <td>${alert.message}</td>
+                            <td><span class="badge alert-badge badge-${alert.severity}">${alert.severity}</span></td>
+                            <td>
+                                ${!alert.acknowledged ? 
+                                    `<button class="btn btn-sm btn-success acknowledge-btn" data-id="${alert.id}">
+                                        <i class="bi bi-check-circle"></i> Traiter
+                                    </button>` : 
+                                    `<span class="text-muted"><i class="bi bi-check-circle-fill"></i> Traitée</span>`
+                                }
+                            </td>
+                        `;
+                        
+                        alertsTable.appendChild(row);
+                    });
+                    
+                    // Ajouter les gestionnaires d'événements pour les boutons de traitement
+                    document.querySelectorAll('.acknowledge-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            acknowledgeAlert(this.getAttribute('data-id'));
+                        });
+                    });
+                    
+                    // Mettre à jour la pagination
+                    updatePagination();
+                })
+                .catch(error => console.error('Erreur lors du chargement des alertes:', error));
+        }
+        
+        // Fonction pour mettre à jour la pagination
+        function updatePagination() {
+            fetch('/api/alerts?limit=1000')  // On récupère juste le nombre total
+                .then(response => response.json())
+                .then(data => {
+                    const totalAlerts = data.length;
+                    const totalPages = Math.ceil(totalAlerts / alertsPerPage);
+                    
+                    const pagination = document.getElementById('alerts-pagination');
+                    pagination.innerHTML = '';
+                    
+                    // Bouton précédent
+                    const prevLi = document.createElement('li');
+                    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                    prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Précédent</a>`;
+                    pagination.appendChild(prevLi);
+                    
+                    // Pages
+                    for (let i = 1; i <= totalPages; i++) {
+                        const li = document.createElement('li');
+                        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                        li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+                        pagination.appendChild(li);
+                    }
+                    
+                    // Bouton suivant
+                    const nextLi = document.createElement('li');
+                    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                    nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Suivant</a>`;
+                    pagination.appendChild(nextLi);
+                    
+                    // Ajouter les gestionnaires d'événements pour la pagination
+                    document.querySelectorAll('.page-link').forEach(link => {
+                        link.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const page = parseInt(this.getAttribute('data-page'));
+                            if (page >= 1 && page <= totalPages) {
+                                currentPage = page;
+                                loadAlerts(currentPage);
+                            }
+                        });
+                    });
+                })
+                .catch(error => console.error('Erreur lors de la mise à jour de la pagination:', error));
+        }
+        
+        // Fonction pour marquer une alerte comme traitée
+        function acknowledgeAlert(alertId) {
+            fetch(`/api/acknowledge/${alertId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Recharger les alertes
+                    loadAlerts(currentPage);
+                    // Mettre à jour les statistiques
+                    loadStats();
+                }
+            })
+            .catch(error => console.error('Erreur lors du traitement de l\'alerte:', error));
+        }
+        
+        // Fonction pour charger les statistiques
+        function loadStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Mettre à jour les compteurs
+                    let totalAlerts = 0;
+                    data.severity.forEach(item => {
+                        totalAlerts += item.count;
+                    });
+                    
+                    document.getElementById('total-alerts').textContent = totalAlerts;
+                    
+                    let pendingAlerts = 0;
+                    data.unacknowledged.forEach(item => {
+                        pendingAlerts += item.count;
+                    });
+                    
+                    document.getElementById('pending-alerts').textContent = pendingAlerts;
+                    
+                    let criticalAlerts = 0;
+                    data.severity.forEach(item => {
+                        if (item.severity === 'CRITICAL' || item.severity === 'HIGH') {
+                            criticalAlerts += item.count;
+                        }
+                    });
+                    
+                    document.getElementById('critical-alerts').textContent = criticalAlerts;
+                    document.getElementById('unique-ips').textContent = data.ip.length;
+                })
+                .catch(error => console.error('Erreur lors du chargement des statistiques:', error));
+        }
+        
+        // Fonction pour charger les graphiques
+        function loadCharts() {
+            // Graphique de sévérité
+            fetch('/api/graphs/severity')
+                .then(response => response.json())
+                .then(data => {
+                    Plotly.newPlot('severity-chart', data.data, data.layout);
+                })
+                .catch(error => console.error('Erreur lors du chargement du graphique de sévérité:', error));
+                
+            // Graphique d'évolution temporelle
+            fetch('/api/graphs/timeline')
+                .then(response => response.json())
+                .then(data => {
+                    Plotly.newPlot('timeline-chart', data.data, data.layout);
+                })
+                .catch(error => console.error('Erreur lors du chargement du graphique d\'évolution:', error));
+        }
+        
+        // Fonction pour ajouter une alerte en temps réel
+        function addRealtimeAlert(alert) {
+            const realtimeAlerts = document.getElementById('realtime-alerts');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${getSeverityClass(alert.severity)} d-flex align-items-center`;
+            alertDiv.innerHTML = `
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>
+                    <strong>${alert.timestamp}</strong> - ${alert.ip} - ${alert.message}
+                </div>
+            `;
+            
+            realtimeAlerts.prepend(alertDiv);
+            
+            // Limiter le nombre d'alertes affichées
+            if (realtimeAlerts.children.length > 10) {
+                realtimeAlerts.removeChild(realtimeAlerts.lastChild);
+            }
+        }
+        
+        // Fonction pour convertir la sévérité en classe Bootstrap
+        function getSeverityClass(severity) {
+            switch (severity) {
+                case 'LOW': return 'success';
+                case 'MEDIUM': return 'warning';
+                case 'HIGH': return 'warning';
+                case 'CRITICAL': return 'danger';
+                default: return 'secondary';
+            }
+        }
+        
+        // Événement pour le switch d'affichage des alertes traitées
+        document.getElementById('show-acknowledged').addEventListener('change', function() {
+            showAcknowledged = this.checked;
+            currentPage = 1;
+            loadAlerts();
+        });
+        
+        // Fonction pour simuler la réception d'alertes en temps réel (à des fins de démonstration)
+        function simulateRealtimeAlerts() {
+            const severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+            const ips = ['192.168.1.100', '10.0.0.5', '172.16.0.10', '8.8.8.8'];
+            const messages = [
+                'Scan de ports détecté',
+                'Trafic excessif',
+                'Tentative de brute force',
+                'Signature Nmap détectée',
+                'Anomalie détectée par ML'
+            ];
+            
+            setInterval(() => {
+                // Simuler une nouvelle alerte toutes les 10 secondes
+                const alert = {
+                    timestamp: new Date().toLocaleString(),
+                    ip: ips[Math.floor(Math.random() * ips.length)],
+                    message: messages[Math.floor(Math.random() * messages.length)],
+                    severity: severities[Math.floor(Math.random() * severities.length)]
+                };
+                
+                addRealtimeAlert(alert);
+                
+                // Recharger les statistiques et les alertes
+                loadStats();
+                loadAlerts(currentPage);
+            }, 10000);
+        }
+        
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAlerts();
+            loadStats();
+            loadCharts();
+            
+            // Décommenter pour simuler des alertes en temps réel
+            // simulateRealtimeAlerts();
+            
+            // Rafraîchir les données toutes les 30 secondes
+            setInterval(() => {
+                loadAlerts(currentPage);
+                loadStats();
+                loadCharts();
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{geometry}
+
+\geometry{margin=2.5cm}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{Rapport du Projet IDS\\
+\large Système de Détection d'Intrusion}
+\author{Équipe de Sécurité Réseau}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introduction}
+Ce rapport présente un système de détection d'intrusion (IDS) développé en Python. Le système surveille le trafic réseau en temps réel, détecte les activités suspectes basées sur des signatures prédéfinies et des comportements anormaux, puis envoie des alertes à un serveur central.
+
+\section{Architecture du Système}
+
+L'architecture du système IDS se compose de deux composants principaux :
+
+\begin{itemize}
+    \item \textbf{Agent IDS} : Un programme Python qui capture et analyse le trafic réseau en utilisant la bibliothèque Scapy.
+    \item \textbf{Serveur d'alertes} : Un serveur web Flask qui reçoit, stocke et affiche les alertes générées par l'agent IDS.
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    % Placeholder pour un diagramme d'architecture
+    \framebox(300,150){Diagramme d'architecture du système IDS}
+    \caption{Architecture du système IDS}
+\end{figure}
+
+\section{Composants du Système}
+
+\subsection{Agent IDS (agent\_ids.py)}
+L'agent IDS est responsable de la capture et de l'analyse du trafic réseau. Il utilise la bibliothèque Scapy pour capturer les paquets et applique deux types de règles de détection :
+
+\begin{enumerate}
+    \item \textbf{Détection basée sur le volume} : Détecte un trafic excessif provenant d'une même adresse IP.
+    \item \textbf{Détection basée sur les signatures} : Compare les paquets avec des signatures d'attaques connues.
+\end{enumerate}
+
+\begin{lstlisting}[language=Python, caption=Extrait du code de l'agent IDS]
+def process(pkt):
+    if pkt.haslayer(scapy.IP):
+        src_ip = pkt[scapy.IP].src
+        traffic_counter[src_ip] += 1
+
+        # Règle 1 : trafic excessif
+        if traffic_counter[src_ip] > 100:
+            send_alert(src_ip, "Trafic excessif détecté")
+
+        # Règle 2 : détection par signature
+        matched = match_signature(pkt)
+        if matched:
+            send_alert(src_ip, f"Signature détectée : {matched}")
+\end{lstlisting}
+
+\subsection{Serveur d'alertes (server\_flask.py)}
+Le serveur d'alertes est une application web développée avec Flask. Il expose deux endpoints API :
+
+\begin{itemize}
+    \item \texttt{/api/alert} (POST) : Reçoit les alertes de l'agent IDS.
+    \item \texttt{/alerts} (GET) : Permet de consulter toutes les alertes reçues.
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Extrait du code du serveur d'alertes]
+@app.route("/api/alert", methods=["POST"])
+def receive_alert():
+    data = request.json
+    alerts.append(data)
+    print(f"[{data['time']}] 🚨 ALERTE : {data['ip']} → {data['alert']}")
+    return jsonify({"status": "ok"})
+\end{lstlisting}
+
+\subsection{Signatures (signatures.json)}
+Les signatures d'attaques sont définies dans un fichier JSON. Chaque signature contient les informations suivantes :
+
+\begin{itemize}
+    \item Nom de l'attaque
+    \item Protocole (TCP, UDP, etc.)
+    \item Drapeaux (flags) TCP
+    \item Ports de destination
+    \item Seuil de détection
+\end{itemize}
+
+\begin{lstlisting}[language=JSON, caption=Exemple de signature]
+{
+  "name": "Scan Nmap",
+  "proto": "TCP",
+  "flags": "S",
+  "dport": [80, 443],
+  "threshold": 10
+}
+\end{lstlisting}
+
+\section{Fonctionnalités}
+
+\subsection{Détection basée sur le volume}
+Le système surveille le nombre de paquets provenant de chaque adresse IP source. Si ce nombre dépasse un seuil prédéfini (actuellement 100 paquets), une alerte est générée.
+
+\subsection{Détection basée sur les signatures}
+Le système compare chaque paquet avec des signatures d'attaques connues. Si un paquet correspond à une signature, une alerte est générée avec le nom de l'attaque détectée.
+
+\subsection{Système d'alertes}
+Lorsqu'une activité suspecte est détectée, l'agent IDS envoie une alerte au serveur. L'alerte contient les informations suivantes :
+\begin{itemize}
+    \item Adresse IP source
+    \item Description de l'alerte
+    \item Horodatage
+\end{itemize}
+
+\section{Installation et Déploiement}
+
+\subsection{Prérequis}
+\begin{itemize}
+    \item Python 3.6 ou supérieur
+    \item Bibliothèques Python : scapy, flask, requests
+\end{itemize}
+
+\subsection{Installation}
+\begin{enumerate}
+    \item Cloner le dépôt du projet
+    \item Installer les dépendances : \texttt{pip install -r requirements.txt}
+\end{enumerate}
+
+\subsection{Démarrage du système}
+\begin{enumerate}
+    \item Démarrer le serveur d'alertes : \texttt{python server\_flask.py}
+    \item Démarrer l'agent IDS : \texttt{sudo python agent\_ids.py} (les privilèges administrateur sont nécessaires pour la capture de paquets)
+\end{enumerate}
+
+\section{Améliorations Futures}
+
+\subsection{Améliorations techniques}
+\begin{itemize}
+    \item Ajouter plus de signatures d'attaques
+    \item Implémenter des algorithmes de détection d'anomalies basés sur l'apprentissage automatique
+    \item Améliorer la performance de l'analyse des paquets
+    \item Ajouter une interface utilisateur graphique pour la visualisation des alertes
+\end{itemize}
+
+\subsection{Améliorations fonctionnelles}
+\begin{itemize}
+    \item Intégration avec d'autres systèmes de sécurité (pare-feu, SIEM, etc.)
+    \item Génération de rapports périodiques
+    \item Notification par email ou SMS en cas d'alerte critique
+\end{itemize}
+
+\section{Conclusion}
+Le système IDS développé offre une solution simple mais efficace pour la détection d'intrusions sur un réseau. Bien qu'il soit actuellement limité à la détection basée sur les signatures et le volume, il constitue une base solide pour le développement d'un système plus complet et sophistiqué.
+
+\appendix
+\section{Glossaire}
+\begin{itemize}
+    \item \textbf{IDS} : Intrusion Detection System (Système de Détection d'Intrusion)
+    \item \textbf{Scapy} : Bibliothèque Python pour la manipulation de paquets réseau
+    \item \textbf{Flask} : Framework web léger pour Python
+    \item \textbf{Signature} : Modèle d'attaque connue utilisé pour la détection
+\end{itemize}
+
+\section{Références}
+\begin{itemize}
+    \item Documentation Scapy : \url{https://scapy.readthedocs.io/}
+    \item Documentation Flask : \url{https://flask.palletsprojects.com/}
+    \item OWASP - Guide de sécurité réseau : \url{https://owasp.org/}
+\end{itemize}
+
+\end{document}

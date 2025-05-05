@@ -1,0 +1,10 @@
+[
+    {
+      "name": "Scan Nmap",
+      "proto": "TCP",
+      "flags": "S",
+      "dport": [80, 443],
+      "threshold": 10
+    }
+  ]
+  
